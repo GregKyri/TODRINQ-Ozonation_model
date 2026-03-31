@@ -1,4 +1,4 @@
-# Ozonation_model
+# TODRINQ Ozonation model
 This repository contains the code scripts of the TODRINQ model for the ozonation process (CT exposure, bromate formation, coliforms removal)
 
 **Note:**  
