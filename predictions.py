@@ -25,6 +25,7 @@ import joblib
 import pandas as pd
 import numpy as np
 from preprocessing import predict_next_step
+from ct_calc import calculate_ct
 
 # --- 1. Load All Models and Scalers into a Dictionary ---
 # This prevents variables from being overwritten
@@ -92,26 +93,16 @@ def predict_chained_models(new_raw_data):
 
         # 3. Append CT result to the dataframe for the next models
         input_df['CT_All'] = ct_val
-        time = input_df['Residencetime'].values[0]
-        dosage = input_df['Ozonedosage'].values[0]
 
-        # Calculate Clog (The log-mean concentration factor)
-        if dosage > 0.012:
-            Clog_val = (dosage - 0.012) / np.log10(dosage / 0.012)
-        else:
-            Clog_val = 0  # Or a small baseline if dosage is below threshold
-
-        # 4. Predict Bromate and using the new CT_All value
+        # 4. Predict Bromate and Coliform using the new CT_All value
         bromate_val = run_model_prediction('Bromate', input_df)
+        coliform_val = run_model_prediction('Coliform', input_df)
+        
+        # 5. Calculate minimum CT required based on USEPA empirical model
+        ct_usepa = calculate_ct(input_df["WaterTemperature"].iloc[0])
 
-        # 5. Predict coliform removal and using the new CT_All value
-        # predicting the K value for the Holms formula
-        k_pred = run_model_prediction('Coliform', input_df)
-        k_pred = k_pred = np.asarray(k_pred).item()
-        m=2
-        coliform_val = -(k_pred * Clog_val * (time**m)) / np.log10(10)
 
-        # 5. Store all three
+        # 5. Store all three outputs
         all_results.append({
             'Chamber': ch_id,
             'CT_Prediction': ct_val,
@@ -119,8 +110,11 @@ def predict_chained_models(new_raw_data):
             'Coliform_Log_Removal': coliform_val
         })
 
-    return pd.DataFrame(all_results)
+
+
+    return pd.DataFrame(all_results),ct_usepa
 
 # --- Execution ---
-results_df = predict_chained_models(new_data)
+results_df,ct_usepa = predict_chained_models(new_data)
 print(results_df)
+print("The minimum required CT (mgO3 * min/l) is:",ct_usepa)
